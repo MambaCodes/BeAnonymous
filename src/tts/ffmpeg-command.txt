@@ -1,0 +1,1 @@
+ffmpeg -i normal_audio.mp3 -af asetrate=44100*0.35,aresample=44100 output.mp3
