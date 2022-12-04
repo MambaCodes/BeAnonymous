@@ -22,8 +22,20 @@ def relative_to_assets(path: str) -> Path:
     return ASSETS_PATH / Path(path)
 
 
+
 # Main Function That Generates the Video
 def GENERATE():
+
+    # Deactivating the Generate
+    generate_btn.configure(state="disabled")
+    
+    # checking if script and output is not empty
+    if script_entry.get("1.0",END) == "" or output_entry.get() == "":
+        raise Exception("Output Directory or Script is Empty")
+    # checking if output path is valid
+    if not Path(output_entry.get()).exists():
+        raise FileNotFoundError
+
     # Showing Values from GUI
     print("Generate Button Clicked")
     print("Path: ",output_entry.get())
@@ -46,8 +58,11 @@ def GENERATE():
 
     # shoiwing a message for Successful Video Generation
     messagebox.showinfo("Success","Video Generated Successfully at "+ output_entry.get())
+    
+    # Activating the Generate Button Again
+    generate_btn.configure(state="normal")
 
-
+   
 # Functions for ComboBox (Stock Video & Audio Selectors)
 def get_list_of_bg_videos():
     import os
@@ -72,7 +87,7 @@ def select_output_path():
     output_entry.insert(0, entered_path)
 
 
-# Function for Controling button Presses
+# Function for Controling Button Presses
 def handle_btn_press(option):
     if option=="about":
         print("About Button Clicked")
@@ -80,11 +95,15 @@ def handle_btn_press(option):
     elif option=="settings":
         print("settings Button Clicked")
         messagebox.showinfo("Settings","Version : 1.0.0\nWords per Minute : 200")
-    elif option=="generate":
-        try : 
+    elif option=="generate": 
+        
+        try :
             GENERATE()
+            generate_button_image.configure(file=relative_to_assets("button_1.png"))
         except Exception as e:
             messagebox.showerror("Error",e)
+            generate_button_image.configure(file=relative_to_assets("button_1.png"))
+            generate_btn.configure(state="normal")
 
 
 # Functions for Toggle Button
@@ -358,6 +377,9 @@ script_entry.place(
 # Generate Button
 generate_button_image = PhotoImage(
     file=relative_to_assets("button_1.png"))
+
+  
+
 generate_btn = Button(
     image=generate_button_image,
     borderwidth=0,
