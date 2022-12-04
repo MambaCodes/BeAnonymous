@@ -3,8 +3,8 @@ import subprocess
 
 
 # FILE PATHS : 
-inputfile="src/temp/normal_audio.mp3" #Path for the Original TTS
-outputfile="src/temp/final_tts.mp3" #Path for the Final tts output
+inputfile="src/temp/normal_audio.mp3" # Path for the Original TTS
+outputfile="src/temp/final_tts.mp3" # Path for the Final tts output
 ffmpeg="src/ffmpeg/ffmpeg.exe"
 
 
@@ -25,11 +25,14 @@ def precheck_outputfile():
         print("\n\n[CONVERTER] Success : Outputfile has been deleted")
 
 
+
 '''
 FFMPEG command : 
 For Low Pitch  : ffmpeg -i {inputfile} -af asetrate=44100*0.35,aresample=44100 {outputfile}
 For High Pitch : ffmpeg -i {inputfile} -af asetrate=44100*1.15,aresample=44100 {outputfile}
 '''
+
+
 def lower_pitch():
     precheck_outputfile()
     try:
@@ -41,9 +44,9 @@ def lower_pitch():
         print(error)
             
 def higher_pitch():
-    # but for converting in high pitch, it  will also need to 
+    # but for converting in high pitch, we  will also need to 
     # Decrease the rate of speech of the original Generated TTS in the tts_generator.py
-    # Because increasing pitch would also increase the Rate of Speech.
+    # Because increasing pitch would also increase the Rate of Speech/Words per Minute.
     precheck_outputfile()
     try:
         subprocess.call([ffmpeg, "-i", inputfile, "-af", "asetrate=44100*1.5", outputfile])
@@ -58,7 +61,7 @@ def higher_pitch():
 
 
 class Converter():
-    option="pitchtolow" #default SET to lower the Pitch
+    option="pitchtolow" # Default it is SET to lower the Pitch
     # Change ".option" in instance if user wants to change into High Pitch
         
     def convert_pitch(self):

@@ -3,10 +3,17 @@ import pyttsx3
 engine=pyttsx3.init()
 voices=engine.getProperty('voices')
 engine.setProperty('voice',voices[0].id)
+
+# Changing the property Below will change the  
+# Words per Minute as well as effect the pitch
 engine.setProperty('rate',200)
 
 def generate_normal_tts(audio,path):
+    #For Manually Changing Pitch of PYTTSX3 
+    # Refer : https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms717077(v=vs.85)
     #engine.save_to_file("<pitch absmiddle='-10' middle='-10'>" + audio + "</pitch>" ,path)
+
+    # Though i used FFMPEG to change the Pitch of Audio
     engine.save_to_file(audio,path)
     engine.runAndWait()
 
@@ -38,23 +45,26 @@ class TTS():
 
         
        
+'''
 
 #For Testing How this Works :
 
 # Firstly input text to generate into speech
-#text_by_user = input(">")
+text_by_user = input(">")
 
 # Declaring TTS Instance :
-#output=TTS(text_by_user)
+output=TTS(text_by_user)
 
 # Changing path of output file
-#output.change_path("src/")
+output.change_path("src/")
 
 # Changing name of output file
-#output.change_name("newname.mp3")
+output.change_name("newname.mp3")
 
 # Generating TTS
-#output.generate()
+output.generate()
+
+'''
 
 
 
