@@ -44,12 +44,15 @@ pip install -r requirements.txt
 
 
 
-# Preview of App Interface (gui not yet commited)
+# Preview of App Interface (Figma)
 ![Banner](https://user-images.githubusercontent.com/87000693/205113602-3353c7c7-3b2f-4463-9464-683fe5120304.png)
+
+## Screenshot of Real Application
+![image](https://user-images.githubusercontent.com/87000693/205495685-008898e3-5a8c-4c1e-bea2-01565b956fc7.png)
 
 
 # DEMO : 
-(to be added Soon)
+([to be added Soon](www.youtube.com/dyeusyt))
 
 ## Contribute
 
