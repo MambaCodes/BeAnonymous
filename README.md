@@ -8,7 +8,7 @@
 
 
  ##  Introduction
-A simple template based video generator project written in Python. The project can be used to create videos like those of the popular group "Anonymous". We have a built-in video script editor to create your own custom video, which will be played on the screen. The works on various Python Libraries and Audio Post Processors like FFMPEG
+A simple template based video generator project written in Python. The project can be used to create videos like those of the popular Hacking group "Anonymous". We have a built-in video script editor to create your own custom video, which will be played on the screen. This works on various Python Libraries and Audio Post Processors like FFMPEG
 
 ### InShort
 It is an Anonymous Video Generator with which you can Build viral and shareable videos, complete with audio narration, custom video style and background music.
