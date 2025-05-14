@@ -1,3 +1,0 @@
-
-Resources For TTS generation :
-https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms717077(v=vs.85)
