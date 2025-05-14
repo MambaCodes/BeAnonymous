@@ -1,8 +1,8 @@
 """Video generation module for BeAnonymous."""
 
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips, concatenate_audioclips
+import subprocess
 import os
-import os
+from pathlib import Path
 from ...config.settings import (
     VIDEO_ASSETS_PATH, 
     AUDIO_ASSETS_PATH,
@@ -10,7 +10,6 @@ from ...config.settings import (
     VIDEO_OUTPUT_FILENAME,
     TEMP_PATH 
 )
-
 
 class VideoGenerator:
     """Video generator class for creating anonymous videos."""
@@ -23,80 +22,105 @@ class VideoGenerator:
             output_path (str): Directory to save the final video
             add_intro (bool): Whether to add the anonymous intro
         """
-        self.video_path = os.path.join(VIDEO_ASSETS_PATH, f"{video_name}.mp4")
-        self.audio_path = os.path.join(AUDIO_ASSETS_PATH, f"{audio_name}.mp3")
-        self.output_path = output_path
+        # Convert paths to Path objects for better path handling
+        self.video_path = Path(VIDEO_ASSETS_PATH) / f"{video_name}.mp4"
+        self.audio_path = Path(AUDIO_ASSETS_PATH) / f"{audio_name}.mp3"
+        self.output_path = Path(output_path)
         self.add_intro = add_intro
-        temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "utils", "temp")
-        self.tts_path = os.path.join(TEMP_PATH, "final_tts.mp3")
+        self.tts_path = TEMP_PATH / "final_tts.mp3"
 
-    def _load_media(self):
-        """Load all required media files."""
-        self.tts_audio = AudioFileClip(self.tts_path)
-        self.stock_clip = VideoFileClip(self.video_path)
-        self.stock_bg = AudioFileClip(self.audio_path)
-        if self.add_intro:
-            self.intro_clip = VideoFileClip(INTRO_VIDEO_PATH)
+        # Ensure all required files exist
+        if not self.video_path.exists():
+            raise FileNotFoundError(f"Video file not found: {self.video_path}")
+        if not self.audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {self.audio_path}")
+        if not self.tts_path.exists():
+            raise FileNotFoundError(f"TTS audio file not found: {self.tts_path}")
+        if add_intro and not Path(INTRO_VIDEO_PATH).exists():
+            raise FileNotFoundError(f"Intro video not found: {INTRO_VIDEO_PATH}")
 
-    def _process_background_audio(self):
-        """Process and prepare background music."""
-        if self.stock_bg.duration < self.tts_audio.duration:
-            while self.stock_bg.duration < self.tts_audio.duration:
-                self.stock_bg = concatenate_audioclips([self.stock_bg, self.stock_bg])
-        self.stock_bg = self.stock_bg.set_duration(self.tts_audio.duration)
-
-    def _process_video(self):
-        """Process and prepare video clip."""
-        if self.stock_clip.duration < self.tts_audio.duration:
-            while self.stock_clip.duration < self.tts_audio.duration:
-                self.stock_clip = concatenate_videoclips([self.stock_clip, self.stock_clip])
-        self.stock_clip = self.stock_clip.set_duration(self.tts_audio.duration)
+    def _get_audio_duration(self, audio_path):
+        """Get duration of audio file using ffprobe.
+        
+        Args:
+            audio_path (str): Path to audio file
+            
+        Returns:
+            float: Duration in seconds
+        """
+        try:
+            cmd = f'ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{audio_path}"'
+            result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+            return float(result.stdout.strip())
+        except Exception as e:
+            print(f" [VIDEO GENERATOR] Error getting audio duration: {str(e)}")
+            raise
 
     def generate(self):
-        """Generate the final video.
+        """Generate the final video using FFmpeg stream copying.
         
         Returns:
             bool: True if successful, False otherwise
         """
         try:
-            # Load all media files
-            self._load_media()
+            # Get TTS audio duration
+            tts_duration = self._get_audio_duration(self.tts_path)
             
-            # Process background audio
-            self._process_background_audio()
+            # Prepare output path
+            output_file = self.output_path / VIDEO_OUTPUT_FILENAME
             
-            # Create composite audio
-            final_audio = CompositeAudioClip([self.tts_audio, self.stock_bg])
-            
-            # Process and prepare video
-            self._process_video()
-            final_video = self.stock_clip.set_audio(final_audio)
-            
-            # Add intro if requested
+            # Prepare FFmpeg command
             if self.add_intro:
-                final_video = concatenate_videoclips([self.intro_clip, final_video])
-            
-            # Ensure output path ends with separator
-            if not (self.output_path.endswith('/') or self.output_path.endswith('\\\\')):
-                self.output_path += '/'
+                # If adding intro, we need to concatenate videos
+                # First create a temporary file list
+                concat_file = TEMP_PATH / "concat.txt"
+                with open(concat_file, 'w') as f:
+                    f.write(f"file '{INTRO_VIDEO_PATH}'\n")
+                    f.write(f"file '{self.video_path}'\n")
                 
-            # Generate final video
-            output_file = self.output_path + VIDEO_OUTPUT_FILENAME
-            final_video.write_videofile(output_file)
+                # FFmpeg command for concatenating videos and adding audio
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-hide_banner', '-loglevel', 'warning',
+                    '-f', 'concat', '-safe', '0', '-i', str(concat_file),
+                    '-stream_loop', '-1', # Loop the concatenated video
+                    '-t', str(tts_duration), # Trim to TTS duration
+                    '-i', str(self.tts_path), # TTS audio
+                    '-i', str(self.audio_path), # Background audio
+                    '-filter_complex', f'[1:a][2:a]amix=inputs=2:duration=first[a]',
+                    '-map', '0:v', '-map', '[a]',
+                    '-c:v', 'copy', # Copy video stream without re-encoding
+                    str(output_file)
+                ]
+            else:
+                # Without intro, simpler command
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-hide_banner', '-loglevel', 'warning',
+                    '-stream_loop', '-1', # Loop input video
+                    '-t', str(tts_duration), # Duration from TTS
+                    '-i', str(self.video_path), # Input video
+                    '-i', str(self.tts_path), # TTS audio
+                    '-i', str(self.audio_path), # Background audio
+                    '-filter_complex', f'[1:a][2:a]amix=inputs=2:duration=first[a]',
+                    '-map', '0:v', '-map', '[a]',
+                    '-c:v', 'copy', # Copy video stream without re-encoding
+                    str(output_file)
+                ]
             
+            # Run FFmpeg command
+            subprocess.run(cmd, check=True)
+            print(f" [VIDEO GENERATOR] Success: Video generated at {output_file}")
+            
+            # Clean up concat file if it was created
+            if self.add_intro and concat_file.exists():
+                concat_file.unlink()
+                
             return True
             
-        except Exception as e:
-            print(" [VIDEO GENERATOR] Error: Video generation failed")
-            print(e)
+        except subprocess.CalledProcessError as e:
+            print(f" [VIDEO GENERATOR] FFmpeg Error: {e.stderr.decode() if e.stderr else str(e)}")
             return False
-        finally:
-            # Clean up loaded clips
-            if hasattr(self, 'tts_audio'):
-                self.tts_audio.close()
-            if hasattr(self, 'stock_clip'):
-                self.stock_clip.close()
-            if hasattr(self, 'stock_bg'):
-                self.stock_bg.close()
-            if hasattr(self, 'intro_clip'):
-                self.intro_clip.close()
+        except Exception as e:
+            print(f" [VIDEO GENERATOR] Error: {str(e)}")
+            return False
