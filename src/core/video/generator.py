@@ -3,6 +3,7 @@
 import subprocess
 import os
 from pathlib import Path
+from typing import Optional, Callable
 from ...config.settings import (
     VIDEO_ASSETS_PATH, 
     AUDIO_ASSETS_PATH,
@@ -22,7 +23,7 @@ class VideoGenerator:
             audio_name (str): Name of the background audio file (without extension)
             output_path (str): Directory to save the final video
             add_intro (bool): Whether to add the anonymous intro
-        """        # Convert paths to Path objects for better path handling
+        """        
         self.video_path = Path(VIDEO_ASSETS_PATH) / f"{video_name}.mp4"
         self.audio_path = Path(AUDIO_ASSETS_PATH) / f"{audio_name}.mp3"
         self.output_path = Path(output_path)
@@ -82,29 +83,42 @@ class VideoGenerator:
             print(f" [VIDEO GENERATOR] Error getting video duration: {str(e)}")
             raise
 
-    def generate(self):
+    def generate(self, progress_callback: Optional[Callable[[float], None]] = None) -> bool:
         """Generate the final video using FFmpeg stream copying.
         
+        Args:
+            progress_callback: Optional callback function to receive progress updates
+            
         Returns:
             bool: True if successful, False otherwise
         """
         try:
+            if progress_callback:
+                progress_callback(0)  # Start progress
+                
             # Get TTS audio duration
             tts_duration = self._get_audio_duration(self.tts_path)
+            if progress_callback:
+                progress_callback(10)  # Get audio duration done
             
             # Prepare output path
             output_file = self.output_path / VIDEO_OUTPUT_FILENAME
             temp_video = TEMP_PATH / "temp_video.mp4"
-            
+
             if self.add_intro:
                 # Get intro video duration
                 intro_duration = self._get_video_duration(INTRO_VIDEO_PATH)
+                if progress_callback:
+                    progress_callback(20)  # Get video duration done
                 
                 # First create a temporary concatenated video
                 concat_file = TEMP_PATH / "concat.txt"
                 with open(concat_file, 'w') as f:
                     f.write(f"file '{INTRO_VIDEO_PATH}'\n")
                     f.write(f"file '{self.video_path}'\n")
+                
+                if progress_callback:
+                    progress_callback(30)  # Concat file created
                 
                 # First concatenate the videos
                 concat_cmd = [
@@ -116,6 +130,9 @@ class VideoGenerator:
                     str(temp_video)
                 ]
                 subprocess.run(concat_cmd, check=True)
+                
+                if progress_callback:
+                    progress_callback(50)  # Video concatenation done
                 
                 # Now add the audio with proper timing
                 cmd = [
@@ -150,8 +167,14 @@ class VideoGenerator:
                     str(output_file)
                 ]
             
+            if progress_callback:
+                progress_callback(70)  # FFmpeg command prepared
+            
             # Run FFmpeg command
             subprocess.run(cmd, check=True)
+            if progress_callback:
+                progress_callback(90)  # FFmpeg processing done
+            
             print(f" [VIDEO GENERATOR] Success: Video generated at {output_file}")
             
             # Clean up temporary files
@@ -160,6 +183,9 @@ class VideoGenerator:
                     concat_file.unlink()
                 if temp_video.exists():
                     temp_video.unlink()
+                    
+            if progress_callback:
+                progress_callback(100)  # All done
                 
             return True
             

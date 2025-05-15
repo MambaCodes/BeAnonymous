@@ -44,7 +44,6 @@ class BeAnonymousApp:
         self.window.configure(bg=WINDOW_BG_COLOR)
         
         # Convert relative path to absolute path for the icon
-         # Use pathlib for path handling
         icon_path = GUI_ASSETS_PATH / APP_ICON
         if icon_path.exists():
             self.window.iconbitmap(str(icon_path))
@@ -63,6 +62,7 @@ class BeAnonymousApp:
     def create_variables(self):
         """Initialize tkinter variables."""
         self.intro_var = tk.StringVar(value="False")
+        self.progress_var = tk.DoubleVar(value=0.0)
         self.file_handler = FileHandler()
         
     def load_assets(self):
@@ -81,6 +81,7 @@ class BeAnonymousApp:
         self._create_output_section()
         self._create_video_section()
         self._create_script_section()
+        self._create_progress_bar()
         self._create_generate_button()
         
     def _create_header(self):
@@ -165,6 +166,17 @@ class BeAnonymousApp:
         )
         self.script_entry.place(x=50, y=370, width=350, height=150)
         
+    def _create_progress_bar(self):
+        """Create the progress bar widget."""
+        self.progress_bar = ttk.Progressbar(
+            self.window,
+            variable=self.progress_var,
+            mode='determinate'
+        )
+        self.progress_bar.place(x=50, y=520, width=350, height=20)
+        # Hide it initially
+        self.progress_bar.place_forget()
+        
     def _create_generate_button(self):
         """Create generate button."""
         self.generate_btn = tk.Button(
@@ -207,28 +219,33 @@ class BeAnonymousApp:
     def _generate_video(self):
         """Handle video generation process."""
         try:
-            
-            # Debugging output [TODO: REMOVE before merging]
-            print(f"TEMP_PATH: {TEMP_PATH}")
-            print(f"TEMP_PATH exists: {TEMP_PATH.exists()}")
-        
+            # Show and reset progress bar
+            self.progress_bar.place(x=50, y=520, width=350, height=20)
+            self.progress_var.set(0)
+            self.window.update()
 
             # Disable generate button
             self.generate_btn.configure(state="disabled")
             
-            # Validate inputs
+            # Validate inputs (10%)
             if not Validators.validate_script(self.script_entry.get("1.0", tk.END)):
                 raise ValueError(ERROR_MSGS["EMPTY_FIELDS"])
                 
             if not self.file_handler.validate_output_path(self.output_entry.get()):
                 raise ValueError(ERROR_MSGS["INVALID_PATH"])
             
-            # Generate TTS audio with pitch adjustment
+            self.progress_var.set(10)
+            self.window.update()
+            
+            # Generate TTS audio with pitch adjustment (40%)
             tts = TTS(self.script_entry.get("1.0", tk.END))
             if not tts.generate():
                 raise Exception("TTS generation failed")
                 
-            # Generate video
+            self.progress_var.set(40)
+            self.window.update()
+            
+            # Generate video (90%)
             generator = VideoGenerator(
                 self.bg_video.get(),
                 self.bg_music.get(),
@@ -238,12 +255,22 @@ class BeAnonymousApp:
             if not generator.generate():
                 raise Exception("Video generation failed")
                 
+            self.progress_var.set(90)
+            self.window.update()
+            
+            # Final steps (100%)
+            self.progress_var.set(100)
+            self.window.update()
+            
             messagebox.showinfo("Success", SUCCESS_MSG.format(self.output_entry.get()))
             
         except Exception as e:
             messagebox.showerror("Error", str(e))
         finally:
             self.generate_btn.configure(state="normal")
+            # Hide progress bar when done
+            self.progress_bar.place_forget()
+            self.progress_var.set(0)
             
     def run(self):
         """Start the application."""
