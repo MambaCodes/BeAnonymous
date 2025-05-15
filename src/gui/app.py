@@ -65,6 +65,10 @@ class BeAnonymousApp:
         self.progress_var = tk.DoubleVar(value=0.0)
         self.file_handler = FileHandler()
         
+        # Load saved settings
+        settings = FileHandler.load_settings()
+        self.last_output_path = settings.get('last_output_path', '')
+        
     def load_assets(self):
         """Load GUI assets."""
         self.images = {}
@@ -122,6 +126,9 @@ class BeAnonymousApp:
             highlightthickness=0
         )
         self.output_entry.place(x=50, y=127, width=350, height=23)
+        # Set the last used path if available
+        if hasattr(self, 'last_output_path') and self.last_output_path:
+            self.output_entry.insert(0, self.last_output_path)
         
         tk.Button(
             text="Browse",
@@ -207,8 +214,11 @@ class BeAnonymousApp:
     def _select_output_path(self):
         """Handle output directory selection."""
         path = filedialog.askdirectory()
-        self.output_entry.delete(0, tk.END)
-        self.output_entry.insert(0, path)
+        if path:
+            self.output_entry.delete(0, tk.END)
+            self.output_entry.insert(0, path)
+            # Save the selected path
+            FileHandler.save_settings({'last_output_path': path})
         
     def _toggle_intro(self):
         """Toggle intro video inclusion."""

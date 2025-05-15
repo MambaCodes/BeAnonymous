@@ -1,12 +1,15 @@
 """File handling utilities for BeAnonymous."""
 
 import os
+import json
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from ...config.settings import VIDEO_ASSETS_PATH, AUDIO_ASSETS_PATH
 
 class FileHandler:
+    # Settings file location
+    SETTINGS_FILE = Path.home() / ".beanonymous" / "settings.json"
     """File handling utility class."""
     
     @staticmethod
@@ -82,3 +85,34 @@ class FileHandler:
             
         except (OSError, PermissionError):
             return False
+    
+    @classmethod
+    def save_settings(cls, settings: Dict) -> None:
+        """Save settings to a persistent file.
+        
+        Args:
+            settings (Dict): Settings to save
+        """
+        try:
+            # Create settings directory if it doesn't exist
+            cls.SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(cls.SETTINGS_FILE, 'w') as f:
+                json.dump(settings, f)
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+    
+    @classmethod
+    def load_settings(cls) -> Dict:
+        """Load settings from persistent file.
+        
+        Returns:
+            Dict: Loaded settings or empty dict if file doesn't exist
+        """
+        try:
+            if cls.SETTINGS_FILE.exists():
+                with open(cls.SETTINGS_FILE, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+        return {}
