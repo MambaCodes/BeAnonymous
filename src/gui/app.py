@@ -131,19 +131,22 @@ class BeAnonymousApp:
     def _create_video_section(self):
         """Create video and audio selection section."""
         # Video selector
+        videos = self.file_handler.get_video_files()
         self.bg_video = ttk.Combobox(
-            values=self.file_handler.get_video_files(),
+            values=videos,
             state="readonly"
         )
-        self.bg_video.set("Default")
+        # Set to first video if available, otherwise "Default"
+        self.bg_video.set(videos[0] if videos else "Default")
         self.bg_video.place(x=50, y=220, width=350, height=25)
         
         # Audio selector
+        audios = self.file_handler.get_audio_files()
         self.bg_music = ttk.Combobox(
-            values=self.file_handler.get_audio_files(),
+            values=audios,
             state="readonly"
         )
-        self.bg_music.set("Default")
+        self.bg_music.set(audios[0] if audios else "Default")
         self.bg_music.place(x=50, y=270, width=350, height=25)
         
         # Intro toggle
@@ -262,7 +265,15 @@ class BeAnonymousApp:
             self.progress_var.set(100)
             self.window.update()
             
-            messagebox.showinfo("Success", SUCCESS_MSG.format(self.output_entry.get()))
+            # Show success message with Open option
+            success_msg = SUCCESS_MSG.format(self.output_entry.get())
+            result = messagebox.askquestion(
+                "Success", 
+                success_msg + "\n\nWould you like to open the video?", 
+                type='yesno'
+            )
+            if result == 'yes':
+                self._open_generated_video()
             
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -271,6 +282,16 @@ class BeAnonymousApp:
             # Hide progress bar when done
             self.progress_bar.place_forget()
             self.progress_var.set(0)
+            
+    def _open_generated_video(self):
+        """Open the generated video file using the default video player."""
+        from pathlib import Path
+        from ..config.settings import VIDEO_OUTPUT_FILENAME
+        import os
+        
+        video_path = Path(self.output_entry.get()) / VIDEO_OUTPUT_FILENAME
+        if video_path.exists():
+            os.startfile(str(video_path))  # This will open with default video player on Windows
             
     def run(self):
         """Start the application."""

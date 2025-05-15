@@ -31,16 +31,16 @@ class FileHandler:
                 for file in os.listdir(VIDEO_ASSETS_PATH):
                     if file.endswith(".mp4"):
                         videos.append(os.path.splitext(file)[0])
-                
-            # Only return Default if no videos found
+            
             if not videos:
                 print(" [FILE HANDLER] No videos found in stock directory")
-                return ["Default"]
+                # Return empty list instead of ["Default"]
+                return []
                 
             return videos
         except Exception as e:
             print(f" [FILE HANDLER] Error reading video directory: {e}")
-            return ["Default"]
+            return []  # Return empty list on error
     
     @staticmethod
     def get_audio_files() -> List[str]:
