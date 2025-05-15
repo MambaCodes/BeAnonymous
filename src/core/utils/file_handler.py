@@ -26,10 +26,21 @@ class FileHandler:
             List[str]: List of video filenames without extension
         """
         videos = []
-        for file in os.listdir(VIDEO_ASSETS_PATH):
-            if file.endswith(".mp4") and not file.startswith("anon_intro"):
-                videos.append(os.path.splitext(file)[0])
-        return videos or ["Default"]
+        try:
+            if VIDEO_ASSETS_PATH.exists():
+                for file in os.listdir(VIDEO_ASSETS_PATH):
+                    if file.endswith(".mp4"):
+                        videos.append(os.path.splitext(file)[0])
+                
+            # Only return Default if no videos found
+            if not videos:
+                print(" [FILE HANDLER] No videos found in stock directory")
+                return ["Default"]
+                
+            return videos
+        except Exception as e:
+            print(f" [FILE HANDLER] Error reading video directory: {e}")
+            return ["Default"]
     
     @staticmethod
     def get_audio_files() -> List[str]:

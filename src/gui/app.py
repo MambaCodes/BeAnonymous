@@ -223,15 +223,10 @@ class BeAnonymousApp:
             if not self.file_handler.validate_output_path(self.output_entry.get()):
                 raise ValueError(ERROR_MSGS["INVALID_PATH"])
             
-            # Generate TTS audio
+            # Generate TTS audio with pitch adjustment
             tts = TTS(self.script_entry.get("1.0", tk.END))
             if not tts.generate():
                 raise Exception("TTS generation failed")
-                
-            # Process audio
-            processor = AudioProcessor()
-            if not processor.convert_pitch():
-                raise Exception("Audio processing failed")
                 
             # Generate video
             generator = VideoGenerator(

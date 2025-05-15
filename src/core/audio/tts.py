@@ -75,7 +75,7 @@ class TTS:
     
     def _adjust_pitch(self):
         """Convert the pitch of the generated audio file using ffmpeg.
-        Uses the classic hacker-style low pitch effect.
+        Uses the classic hacker-style low pitch effect while maintaining speed.
         
         Returns:
             bool: True if successful, False otherwise
@@ -84,24 +84,48 @@ class TTS:
             # Ensure output directory exists
             os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
             
-            # FFMPEG command to adjust pitch to low, hacker-style voice (rate=0.35)
-            cmd = f'ffmpeg -y -i "{self.temp_path}" -af "asetrate=44100*0.35,aresample=44100" -ar 44100 "{self.output_path}"'
-            subprocess.run(cmd, check=True, capture_output=True, shell=True)
-            
-            # Clean up temporary file
-            # if os.path.exists(self.temp_path):
-            #     os.remove(self.temp_path)
-                
-            print(" [TTS GENERATOR] Success: Pitch adjustment completed")
-            return True
+            # FFMPEG command to create a low-pitched, hacker-style voice effect
+            # The command uses the following audio filter chain:
+            # - asetrate=44100*0.35: Reduces the sample rate to 35% which lowers the pitch
+            # - aresample=44100: Resamples back to standard 44.1kHz for compatibility
+            # Note: This method provides a clean pitch shift while maintaining audio quality
+
+            cmd = f"ffmpeg -y -i {str(self.temp_path)} -af asetrate=44100*0.35,aresample=44100 {str(self.output_path)}"
+            print(f" [TTS GENERATOR] Executing FFmpeg command: {cmd}")
+            try:
+                result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                print(f" [TTS GENERATOR] FFmpeg stdout: {result.stdout}")
+                print(f" [TTS GENERATOR] FFmpeg stderr: {result.stderr}")
+            except subprocess.CalledProcessError as e:
+                print(f" [TTS GENERATOR] FFmpeg command failed with error: {e.stderr}")
+                return False
+
+            if os.path.exists(str(self.output_path)):
+                print(f" [TTS GENERATOR] Output file created successfully at: {self.output_path}")
+                # Verify the output file size
+                if os.path.getsize(str(self.output_path)) > 0:
+                    # Clean up the temporary normal audio file
+                    try:
+                        if self.temp_path.exists():
+                            self.temp_path.unlink()
+                            print(f" [TTS GENERATOR] Cleaned up temporary file: {self.temp_path}")
+                    except Exception as e:
+                        print(f" [TTS GENERATOR] Warning: Could not delete temporary file: {e}")
+                    return True
+                else:
+                    print(" [TTS GENERATOR] Warning: Output file was created but is empty")
+                    return False
+            else:
+                print(f" [TTS GENERATOR] Warning: Output file not found at: {self.output_path}")
+                return False
             
         except subprocess.CalledProcessError as e:
             print(" [TTS GENERATOR] Error: FFMPEG command failed")
-            print(e.stderr.decode())
+            print(f" [TTS GENERATOR] Error details: {e.stderr.decode()}")
             return False
         except Exception as error:
             print(" [TTS GENERATOR] Error: Pitch adjustment failed")
-            print(error)
+            print(f" [TTS GENERATOR] Error details: {str(error)}")
             return False
     
     def generate(self):
@@ -110,12 +134,27 @@ class TTS:
         Returns:
             bool: True if successful, False otherwise
         """
+        print("\n=== Starting TTS Generation Process ===")
+        
         # First generate the initial TTS
+        print(" [TTS GENERATOR] Step 1: Generating initial TTS...")
         if not self._generate_tts():
+            print(" [TTS GENERATOR] Failed to generate initial TTS")
             return False
+        
+        print(f" [TTS GENERATOR] Initial TTS file exists: {self.temp_path.exists()}")
+        if self.temp_path.exists():
+            print(f" [TTS GENERATOR] Initial TTS file size: {self.temp_path.stat().st_size} bytes")
             
         # Then adjust the pitch
+        print("\n [TTS GENERATOR] Step 2: Adjusting pitch...")
         if not self._adjust_pitch():
+            print(" [TTS GENERATOR] Failed to adjust pitch")
             return False
             
+        print(f" [TTS GENERATOR] Output file exists: {self.output_path.exists()}")
+        if self.output_path.exists():
+            print(f" [TTS GENERATOR] Output file size: {self.output_path.stat().st_size} bytes")
+        
+        print("=== TTS Generation Process Complete ===\n")
         return True

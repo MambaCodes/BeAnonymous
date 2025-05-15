@@ -8,7 +8,8 @@ from ...config.settings import (
     AUDIO_ASSETS_PATH,
     INTRO_VIDEO_PATH,
     VIDEO_OUTPUT_FILENAME,
-    TEMP_PATH 
+    TEMP_PATH,
+    RESOURCES_DIR
 )
 
 class VideoGenerator:
@@ -21,17 +22,25 @@ class VideoGenerator:
             audio_name (str): Name of the background audio file (without extension)
             output_path (str): Directory to save the final video
             add_intro (bool): Whether to add the anonymous intro
-        """
-        # Convert paths to Path objects for better path handling
+        """        # Convert paths to Path objects for better path handling
         self.video_path = Path(VIDEO_ASSETS_PATH) / f"{video_name}.mp4"
         self.audio_path = Path(AUDIO_ASSETS_PATH) / f"{audio_name}.mp3"
         self.output_path = Path(output_path)
         self.add_intro = add_intro
         self.tts_path = TEMP_PATH / "final_tts.mp3"
-
-        # Ensure all required files exist
+        
+        # If video file doesn't exist in new stock directory, try alternative locations
         if not self.video_path.exists():
-            raise FileNotFoundError(f"Video file not found: {self.video_path}")
+            # Try to find the video in the resources/videos directory as a fallback
+            fallback_path = RESOURCES_DIR / "videos" / f"{video_name}.mp4"
+            if fallback_path.exists():
+                self.video_path = fallback_path
+                print(f" [VIDEO GENERATOR] Using fallback video path: {self.video_path}")
+            else:
+                print(f" [VIDEO GENERATOR] Video file not found: {self.video_path}")
+                raise FileNotFoundError(f"Video file not found: {self.video_path}")
+        
+        # Ensure other required files exist
         if not self.audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {self.audio_path}")
         if not self.tts_path.exists():
@@ -56,6 +65,23 @@ class VideoGenerator:
             print(f" [VIDEO GENERATOR] Error getting audio duration: {str(e)}")
             raise
 
+    def _get_video_duration(self, video_path):
+        """Get duration of video file using ffprobe.
+        
+        Args:
+            video_path (str): Path to video file
+            
+        Returns:
+            float: Duration in seconds
+        """
+        try:
+            cmd = f'ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{video_path}"'
+            result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+            return float(result.stdout.strip())
+        except Exception as e:
+            print(f" [VIDEO GENERATOR] Error getting video duration: {str(e)}")
+            raise
+
     def generate(self):
         """Generate the final video using FFmpeg stream copying.
         
@@ -68,28 +94,44 @@ class VideoGenerator:
             
             # Prepare output path
             output_file = self.output_path / VIDEO_OUTPUT_FILENAME
+            temp_video = TEMP_PATH / "temp_video.mp4"
             
-            # Prepare FFmpeg command
             if self.add_intro:
-                # If adding intro, we need to concatenate videos
-                # First create a temporary file list
+                # Get intro video duration
+                intro_duration = self._get_video_duration(INTRO_VIDEO_PATH)
+                
+                # First create a temporary concatenated video
                 concat_file = TEMP_PATH / "concat.txt"
                 with open(concat_file, 'w') as f:
                     f.write(f"file '{INTRO_VIDEO_PATH}'\n")
                     f.write(f"file '{self.video_path}'\n")
                 
-                # FFmpeg command for concatenating videos and adding audio
+                # First concatenate the videos
+                concat_cmd = [
+                    'ffmpeg', '-y',
+                    '-hide_banner', '-loglevel', 'warning',
+                    '-f', 'concat', '-safe', '0', 
+                    '-i', str(concat_file),
+                    '-c', 'copy',
+                    str(temp_video)
+                ]
+                subprocess.run(concat_cmd, check=True)
+                
+                # Now add the audio with proper timing
                 cmd = [
                     'ffmpeg', '-y',
                     '-hide_banner', '-loglevel', 'warning',
-                    '-f', 'concat', '-safe', '0', '-i', str(concat_file),
-                    '-stream_loop', '-1', # Loop the concatenated video
-                    '-t', str(tts_duration), # Trim to TTS duration
-                    '-i', str(self.tts_path), # TTS audio
-                    '-i', str(self.audio_path), # Background audio
-                    '-filter_complex', f'[1:a][2:a]amix=inputs=2:duration=first[a]',
+                    '-i', str(temp_video),  # Input concatenated video
+                    '-i', str(self.tts_path),  # TTS audio
+                    '-i', str(self.audio_path),  # Background audio
+                    '-filter_complex',
+                    # Delay TTS to start after intro, mix with background audio
+                    f'[1:a]adelay={int(intro_duration*1000)}|{int(intro_duration*1000)}[delayed_tts];'
+                    '[delayed_tts][2:a]amix=inputs=2:duration=first[a]',
                     '-map', '0:v', '-map', '[a]',
-                    '-c:v', 'copy', # Copy video stream without re-encoding
+                    # Trim to intro duration plus TTS duration
+                    '-t', str(intro_duration + tts_duration),
+                    '-c:v', 'copy',
                     str(output_file)
                 ]
             else:
@@ -97,14 +139,14 @@ class VideoGenerator:
                 cmd = [
                     'ffmpeg', '-y',
                     '-hide_banner', '-loglevel', 'warning',
-                    '-stream_loop', '-1', # Loop input video
-                    '-t', str(tts_duration), # Duration from TTS
-                    '-i', str(self.video_path), # Input video
-                    '-i', str(self.tts_path), # TTS audio
-                    '-i', str(self.audio_path), # Background audio
-                    '-filter_complex', f'[1:a][2:a]amix=inputs=2:duration=first[a]',
+                    '-stream_loop', '-1',  # Loop input video
+                    '-t', str(tts_duration),  # Duration from TTS
+                    '-i', str(self.video_path),  # Input video
+                    '-i', str(self.tts_path),  # TTS audio
+                    '-i', str(self.audio_path),  # Background audio
+                    '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first[a]',
                     '-map', '0:v', '-map', '[a]',
-                    '-c:v', 'copy', # Copy video stream without re-encoding
+                    '-c:v', 'copy',  # Copy video stream without re-encoding
                     str(output_file)
                 ]
             
@@ -112,9 +154,12 @@ class VideoGenerator:
             subprocess.run(cmd, check=True)
             print(f" [VIDEO GENERATOR] Success: Video generated at {output_file}")
             
-            # Clean up concat file if it was created
-            if self.add_intro and concat_file.exists():
-                concat_file.unlink()
+            # Clean up temporary files
+            if self.add_intro:
+                if concat_file.exists():
+                    concat_file.unlink()
+                if temp_video.exists():
+                    temp_video.unlink()
                 
             return True
             

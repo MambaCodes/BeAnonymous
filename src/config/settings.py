@@ -14,12 +14,13 @@ RESOURCES_DIR = SRC_DIR / 'resources'
 
 # Feature-specific Paths
 GUI_ASSETS_PATH = GUI_DIR / 'assets'
-VIDEO_ASSETS_PATH = RESOURCES_DIR / 'videos'
+VIDEO_ASSETS_PATH = RESOURCES_DIR / 'videos' / 'stock'  # Updated path for stock videos
+VIDEO_INTRO_PATH = RESOURCES_DIR / 'videos' / 'intro'   # New path for intro videos
 AUDIO_ASSETS_PATH = RESOURCES_DIR / 'audio'
 TEMP_PATH = CORE_DIR / 'utils' / 'temp'
 
 # Media Paths
-INTRO_VIDEO_PATH = VIDEO_ASSETS_PATH / 'intro' / 'anon_intro.mp4'
+INTRO_VIDEO_PATH = VIDEO_INTRO_PATH / 'anon_intro.mp4'
 
 # Ensure critical directories exist
 REQUIRED_DIRS = [
@@ -45,7 +46,7 @@ DEFAULT_AUDIO = "Default"
 VIDEO_OUTPUT_FILENAME = "BeAnonymous_video.mp4"
 
 # TTS Settings
-TTS_RATE = 200
+TTS_RATE = 185
 TTS_VOICE_ID = 0
 TTS_TEMP_FILE = TEMP_PATH / 'normal_audio.mp3'
 TTS_FINAL_FILE = TEMP_PATH / 'final_tts.mp3'
