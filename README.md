@@ -24,11 +24,11 @@ https://docs.python.org/3/tutorial/venv.html)
 ## Prequisites 
 Below are the Things you will need to use the software and How to install them :
 - Operating System - Windows
-- Python 3.9.x ( 3.9.7 Tested )
+- Python 3.11.5 Tested
 - Pip 3 (Usually gets Installed with Python)
-- FFMPEG - [[Refer Here]](https://github.com/MambaCodes/BeAnonymous/blob/main/src/ffmpeg/readme.md)
+- FFMPEG - [Follow this Installation Tutorial](https://www.youtube.com/watch?v=4jx2_j5Seew)
 
-if all the above prequisities are Satisfied, you may proceedto the next section.
+if all the above prequisities are Satisfied, you may proceed to the next section.
 
 ## Installation
 Follow these instructions to Setup your Own instance of the App :
@@ -37,20 +37,17 @@ Follow these instructions to Setup your Own instance of the App :
 
 
 ### 1 : Clone the Repo 
-Find instructions for [cloning/downloading this repo here](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository), then unzip the repository
-
-</br>
+```sh
+git clone https://github.com/MambaCodes/BeAnonymous.git
+```
 
 ### 2 : Cd to the folder
-
-Open terminal/cmd/powershell and change directory/folder to the cloned folder. [Here are the instructions](https://www.howtogeek.com/659411/how-to-change-directories-in-command-prompt-on-windows-10/)
-
-</br>
-
+```sh
+cd BeAnonymous
+```
 
 ### 3 : Create & Activate a Python Virtual Environment
 After you cd into the repo folder, ensure you see the following cmd/terminal prompt
-
 ```sh
 Something.../BeAnonymous $
 ```
@@ -59,20 +56,18 @@ If not, repeat the previous step.
 
 After this, run the following command in cmd/terminal:
 ```sh
-python -m venv name_of_env
+python -m venv myenv
 ```
 
 once your Virtual Environment is Created, Activate it using the following command in cmd/terminal:
 ```sh
-name_of_env/Scripts/activate.bat
+myenv/Scripts/activate
 ```
-
-</br>
 
 ### 4 : Install the PIP packages/dependencies
 Once your Virtual Environment is setup, your Terminal should look like this :
 ```sh
-  (name_of_env) Something...\BeAnonymous>
+  (myenv) Something...\BeAnonymous>
 ```
 otherwise follow the previous step again.
 
@@ -82,13 +77,9 @@ After this, run the following command in cmd/terminal:
 pip install -r requirements.txt
 ```
 
-</br>
-
 ### 5 : It's done 🎉 | Run the app
-Open Root folder with cmd/terminal and activate Virtual Environment in it, now open `app.py` using python 3.
-your terminal should look something like this :
 ```bash
-  (name_of_env) Something...\BeAnonymous>python "src/app.py"
+  (name_of_env) Something...\BeAnonymous>python main.py
 ```
 </br>
 And Congrats 🎉 the Application would start if you have followed each step correctly.
@@ -138,15 +129,20 @@ Distributed under the Apache License 2.0. See [`LICENSE.txt`](/LICENSE.txt) for 
 
 
 ## 📝 Contact Me
-
 If you want to contact me, you can
 reach me at dyeusyt@gmail.com
 
 # Acknowledgments
 
--   **Parth Jadhav and team** for their Amazing [Tkinter Designer](https://github.com/ParthJadhav/Tkinter-Designer). Highly recommend checking it out.
+-   **Parth Jadhav and team** for their Amazing [Tkinter Designer](https://github.com/ParthJadhav/Tkinter-Designer). This really helped me while making the intial UI using tkinter.
+-  **Tom Schimansky** for CustomTkinter [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)
 -   Anonymous for Motivation of this Application
 -   "Anonymous Group" [Youtube Channel](https://www.youtube.com/@AnonymousGroup) for the Stock Footage clip.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MambaCodes/BeAnonymous&type=Date)](https://www.star-history.com/#MambaCodes/BeAnonymous&Date)
+
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
