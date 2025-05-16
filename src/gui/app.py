@@ -1,10 +1,12 @@
 """Main GUI application for BeAnonymous."""
 
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+import customtkinter as ctk
+from tkinter import messagebox, filedialog
+from customtkinter import StringVar, DoubleVar
 from pathlib import Path
 import os
 import webbrowser
+from PIL import Image
 
 from ..config.settings import (
     APP_NAME, 
@@ -26,12 +28,80 @@ from ..core.video.generator import VideoGenerator
 from ..core.utils.file_handler import FileHandler
 from ..core.utils.validators import Validators
 
+class ProgressDialog:
+    """Dialog to show progress during video generation."""
+    
+    def __init__(self, parent):
+        """Initialize progress dialog.
+        
+        Args:
+            parent: Parent window
+        """
+        self.window = ctk.CTkToplevel(parent)
+        self.window.title("Generating Video")
+        self.window.geometry("300x150")
+        self.window.iconbitmap(str(GUI_ASSETS_PATH / APP_ICON))
+        # Make it modal
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        
+        # Center on parent
+        x = parent.winfo_x() + parent.winfo_width()//2 - 150
+        y = parent.winfo_y() + parent.winfo_height()//2 - 75
+        self.window.geometry(f"+{x}+{y}")
+        
+        # Progress label
+        self.label = ctk.CTkLabel(
+            self.window, 
+            text="Generating video...", 
+            font=("Arial", 14)
+        )
+        self.label.pack(pady=20)
+        
+        # Progress bar
+        self.progress = ctk.CTkProgressBar(
+            self.window,
+            width=250,
+            height=20,
+            fg_color="#2B2B2B",
+            progress_color="#4a90d9"
+        )
+        self.progress.pack(pady=10)
+        self.progress.set(0)
+        
+        # Status label
+        self.status = ctk.CTkLabel(
+            self.window,
+            text="Initializing...",
+            font=("Arial", 12)
+        )
+        self.status.pack(pady=10)
+    
+    def update_progress(self, value, status_text=None):
+        """Update progress bar and status text.
+        
+        Args:
+            value (float): Progress value between 0 and 1
+            status_text (str, optional): Status text to display
+        """
+        self.progress.set(value)
+        self.window.iconbitmap(str(GUI_ASSETS_PATH / APP_ICON))
+        if status_text:
+            self.status.configure(text=status_text)
+        self.window.update()
+    
+    def close(self):
+        """Close the dialog."""
+        self.window.grab_release()
+        self.window.destroy()
+
 class BeAnonymousApp:
     """Main application class for BeAnonymous."""
     
     def __init__(self):
         """Initialize the BeAnonymous application."""
-        self.window = tk.Tk()
+        self.window = ctk.CTk()
         self.setup_window()
         self.create_variables()
         self.load_assets()
@@ -40,29 +110,19 @@ class BeAnonymousApp:
     def setup_window(self):
         """Configure the main window."""
         self.window.title(APP_NAME)
+        self.window.resizable(False, False)
         self.window.geometry(WINDOW_SIZE)
-        self.window.configure(bg=WINDOW_BG_COLOR)
+        self.window.configure(fg_color=WINDOW_BG_COLOR)
         
         # Convert relative path to absolute path for the icon
         icon_path = GUI_ASSETS_PATH / APP_ICON
         if icon_path.exists():
             self.window.iconbitmap(str(icon_path))
         
-        self.canvas = tk.Canvas(
-            self.window,
-            bg=WINDOW_BG_COLOR,
-            height=600,
-            width=450,
-            bd=0,
-            highlightthickness=0,
-            relief="ridge"
-        )
-        self.canvas.place(x=0, y=0)
-        
     def create_variables(self):
         """Initialize tkinter variables."""
-        self.intro_var = tk.StringVar(value="False")
-        self.progress_var = tk.DoubleVar(value=0.0)
+        self.intro_var = StringVar(value="False")
+        self.progress_var = DoubleVar(value=0.0)
         self.file_handler = FileHandler()
         
         # Load saved settings
@@ -75,8 +135,13 @@ class BeAnonymousApp:
         for key, filename in GUI_ASSETS.items():
             file_path = GUI_ASSETS_PATH / filename
             try:
-                self.images[key] = tk.PhotoImage(file=str(file_path))
-            except tk.TclError as e:
+                pil_image = Image.open(file_path)
+                width, height = pil_image.size
+                self.images[key] = ctk.CTkImage(
+                    light_image=pil_image,
+                    size=(width, height)
+                )
+            except Exception as e:
                 print(f"Failed to load image {filename}: {e}")
     
     def create_widgets(self):
@@ -85,125 +150,161 @@ class BeAnonymousApp:
         self._create_output_section()
         self._create_video_section()
         self._create_script_section()
-        self._create_progress_bar()
         self._create_generate_button()
         
     def _create_header(self):
         """Create header section with logo and buttons."""
         # About button
-        tk.Button(
+        ctk.CTkButton(
+            master=self.window,
             image=self.images["ABOUT_BTN"],
-            borderwidth=0,
-            highlightthickness=0,
-            activebackground=WINDOW_BG_COLOR,
+            text="",
+            width=30,
+            height=30,
+            fg_color="transparent",
+            hover_color=WINDOW_BG_COLOR,
+            border_width=0,
             cursor="heart",
-            command=lambda: self._handle_button("about"),
-            relief="flat"
-        ).place(x=20, y=21, width=30, height=30)
+            command=lambda: self._handle_button("about")
+        ).place(x=10, y=21)
         
         # App title
-        self.canvas.create_image(225, 37, image=self.images["APP_TITLE"])
+        ctk.CTkLabel(
+            master=self.window,
+            image=self.images["APP_TITLE"],
+            text="",
+            fg_color="transparent"
+        ).place(relx=0.5, y=37, anchor="center")
         
         # Settings button
-        tk.Button(
+        ctk.CTkButton(
+            master=self.window,
             image=self.images["SETTINGS_BTN"],
-            borderwidth=0,
-            highlightthickness=0,
-            activebackground=WINDOW_BG_COLOR,
+            text="",
+            width=30,
+            height=30,
+            fg_color="transparent",
+            hover_color=WINDOW_BG_COLOR,
+            border_width=0,
             cursor="pirate",
-            command=lambda: self._handle_button("settings"),
-            relief="flat"
-        ).place(x=400, y=21, width=30, height=30)
+            command=lambda: self._handle_button("settings")
+        ).place(x=400, y=21)
         
     def _create_output_section(self):
         """Create output directory selection section."""
-        self.canvas.create_image(224.5, 137.5, image=self.images["OUTPUT_SECTION"])
-        
-        self.output_entry = tk.Entry(
-            bd=0,
-            bg="#D9D9D9",
-            fg="#000716",
-            highlightthickness=0
+        ctk.CTkLabel(
+            master=self.window,
+            image=self.images["OUTPUT_SECTION"],
+            text="",
+            fg_color="transparent"
+        ).place(relx=0.5, y=137.5, anchor="center")
+
+        self.output_entry = ctk.CTkEntry(
+            master=self.window,
+            fg_color="#2d2d2d",
+            bg_color="#2d2d2d",
+            border_width=0,
+            text_color="white",
+            placeholder_text="Output Directory",
+            width=350,
+            height=23
         )
-        self.output_entry.place(x=50, y=127, width=350, height=23)
-        # Set the last used path if available
-        if hasattr(self, 'last_output_path') and self.last_output_path:
+        self.output_entry.place(x=20, y=127)
+        
+        if self.last_output_path:
             self.output_entry.insert(0, self.last_output_path)
         
-        tk.Button(
+        ctk.CTkButton(
+            master=self.window,
             text="Browse",
-            command=self._select_output_path
-        ).place(x=190, y=160, width=70, height=25)
+            command=self._select_output_path,
+            width=70,
+            height=25,
+            fg_color="#D9D9D9",
+            text_color="#000716",
+            hover_color="#C0C0C0"
+        ).place(x=190, y=160)
         
     def _create_video_section(self):
         """Create video and audio selection section."""
-        # Video selector
         videos = self.file_handler.get_video_files()
-        self.bg_video = ttk.Combobox(
+        self.bg_video = ctk.CTkComboBox(
+            master=self.window,
             values=videos,
-            state="readonly"
+            state="readonly",
+            width=350,
+            height=25,
+            fg_color="#2B2B2B",
+            text_color="#FFFFFF",
+            button_color="#2B2B2B",
+            dropdown_fg_color="#2B2B2B",
+            dropdown_text_color="#FFFFFF",
+            dropdown_hover_color="#404040"
         )
-        # Set to first video if available, otherwise "Default"
         self.bg_video.set(videos[0] if videos else "Default")
-        self.bg_video.place(x=50, y=220, width=350, height=25)
+        self.bg_video.place(x=50, y=220)
         
-        # Audio selector
         audios = self.file_handler.get_audio_files()
-        self.bg_music = ttk.Combobox(
+        self.bg_music = ctk.CTkComboBox(
+            master=self.window,
             values=audios,
-            state="readonly"
+            state="readonly",
+            width=350,
+            height=25,
+            fg_color="#2B2B2B",
+            text_color="#FFFFFF",
+            button_color="#2B2B2B",
+            dropdown_fg_color="#2B2B2B",
+            dropdown_text_color="#FFFFFF",
+            dropdown_hover_color="#404040"
         )
         self.bg_music.set(audios[0] if audios else "Default")
-        self.bg_music.place(x=50, y=270, width=350, height=25)
+        self.bg_music.place(x=50, y=270)
         
-        # Intro toggle
-        self.toggle_btn = tk.Button(
+        self.toggle_btn = ctk.CTkButton(
+            master=self.window,
             image=self.images["TOGGLE_OFF"],
-            borderwidth=0,
-            highlightthickness=0,
-            command=self._toggle_intro,
-            relief="flat"
+            text="",
+            width=62,
+            height=28,
+            border_width=0,
+            fg_color="transparent",
+            hover_color=WINDOW_BG_COLOR,
+            command=self._toggle_intro
         )
-        self.toggle_btn.place(x=50, y=320, width=62, height=28)
+        self.toggle_btn.place(x=50, y=320)
         
     def _create_script_section(self):
         """Create script input section."""
-        self.script_entry = tk.Text(
-            bd=0,
-            bg="#D9D9D9",
-            fg="#000716",
-            highlightthickness=0
+        self.script_entry = ctk.CTkTextbox(
+            master=self.window,
+            fg_color="#2d2d2d",
+            bg_color="#2d2d2d",
+            text_color="white",
+            font=("Arial", 16),
+            border_width=0,
+            width=409,
+            height=150
         )
-        self.script_entry.place(x=50, y=370, width=350, height=150)
-        
-    def _create_progress_bar(self):
-        """Create the progress bar widget."""
-        self.progress_bar = ttk.Progressbar(
-            self.window,
-            variable=self.progress_var,
-            mode='determinate'
-        )
-        self.progress_bar.place(x=50, y=520, width=350, height=20)
-        # Hide it initially
-        self.progress_bar.place_forget()
+        self.script_entry.place(x=20, y=370)
         
     def _create_generate_button(self):
         """Create generate button."""
-        self.generate_btn = tk.Button(
+        self.generate_btn = ctk.CTkButton(
+            master=self.window,
             image=self.images["GENERATE_BTN"],
-            borderwidth=0,
-            highlightthickness=0,
-            command=lambda: self._handle_button("generate"),
-            relief="flat"
+            text="",
+            width=150,
+            height=40,
+            border_width=0,
+            fg_color="transparent",
+            hover_color=WINDOW_BG_COLOR,
+            command=lambda: self._handle_button("generate")
         )
-        self.generate_btn.place(x=150, y=540, width=150, height=40)
+        self.generate_btn.place(x=10, y=530)
         
     def _handle_button(self, action):
-        """Handle button clicks.
-        
-        Args:
-            action (str): Button action to handle
-        """
+        """Handle button clicks."""
         if action == "about":
             webbrowser.open(GITHUB_URL)
         elif action == "settings":
@@ -215,93 +316,98 @@ class BeAnonymousApp:
         """Handle output directory selection."""
         path = filedialog.askdirectory()
         if path:
-            self.output_entry.delete(0, tk.END)
+            self.output_entry.delete(0, "end")
             self.output_entry.insert(0, path)
-            # Save the selected path
             FileHandler.save_settings({'last_output_path': path})
-        
+            
     def _toggle_intro(self):
         """Toggle intro video inclusion."""
-        if self.intro_var.get() == "True":
-            self.toggle_btn.configure(image=self.images["TOGGLE_OFF"])
-            self.intro_var.set("False")
-        else:
-            self.toggle_btn.configure(image=self.images["TOGGLE_ON"])
-            self.intro_var.set("True")
+        current_state = self.intro_var.get()
+        new_state = "False" if current_state == "True" else "True"
+        toggle_state = 'ON' if new_state == "True" else 'OFF'
+        self.toggle_btn.configure(
+            image=self.images[f"TOGGLE_{toggle_state}"]
+        )
+        self.intro_var.set(new_state)
             
+    def _validate_selections(self):
+        """Validate all user selections before generation."""
+        if not self.script_entry.get("1.0", "end").strip():
+            raise ValueError(ERROR_MSGS["EMPTY_FIELDS"])
+            
+        if not self.file_handler.validate_output_path(self.output_entry.get()):
+            raise ValueError(ERROR_MSGS["INVALID_PATH"])
+            
+        if self.bg_video.get() == "Default" or self.bg_music.get() == "Default":
+            raise ValueError("Please select background video and music")
+
     def _generate_video(self):
         """Handle video generation process."""
         try:
-            # Show and reset progress bar
-            self.progress_bar.place(x=50, y=520, width=350, height=20)
-            self.progress_var.set(0)
-            self.window.update()
-
-            # Disable generate button
             self.generate_btn.configure(state="disabled")
             
-            # Validate inputs (10%)
-            if not Validators.validate_script(self.script_entry.get("1.0", tk.END)):
-                raise ValueError(ERROR_MSGS["EMPTY_FIELDS"])
-                
-            if not self.file_handler.validate_output_path(self.output_entry.get()):
-                raise ValueError(ERROR_MSGS["INVALID_PATH"])
+            # Validate all inputs first
+            self._validate_selections()
             
-            self.progress_var.set(10)
-            self.window.update()
+            # Create and show progress dialog
+            progress_dialog = ProgressDialog(self.window)
             
-            # Generate TTS audio with pitch adjustment (40%)
-            tts = TTS(self.script_entry.get("1.0", tk.END))
+            # Generate TTS
+            progress_dialog.update_progress(0.1, "Generating Text-to-Speech...")
+            tts = TTS(self.script_entry.get("1.0", "end").strip())
             if not tts.generate():
                 raise Exception("TTS generation failed")
-                
-            self.progress_var.set(40)
-            self.window.update()
             
-            # Generate video (90%)
+            progress_dialog.update_progress(0.4, "Text-to-Speech generated...")
+            
+            # Generate video with progress updates
             generator = VideoGenerator(
                 self.bg_video.get(),
                 self.bg_music.get(),
                 self.output_entry.get(),
                 self.intro_var.get() == "True"
             )
-            if not generator.generate():
+            
+            def progress_callback(value):
+                # Convert 0-100 to 0.4-1.0 range for overall progress
+                progress = 0.4 + (value * 0.6 / 100)
+                status = "Processing video..." if value < 100 else "Finalizing..."
+                progress_dialog.update_progress(progress, status)
+            
+            if not generator.generate(progress_callback=progress_callback):
                 raise Exception("Video generation failed")
-                
-            self.progress_var.set(90)
-            self.window.update()
             
-            # Final steps (100%)
-            self.progress_var.set(100)
-            self.window.update()
+            # Close progress dialog
+            progress_dialog.close()
             
-            # Show success message with Open option
-            success_msg = SUCCESS_MSG.format(self.output_entry.get())
             result = messagebox.askquestion(
                 "Success", 
-                success_msg + "\n\nWould you like to open the video?", 
+                SUCCESS_MSG.format(self.output_entry.get()) + "\n\nWould you like to open the video?", 
                 type='yesno'
             )
             if result == 'yes':
                 self._open_generated_video()
             
         except Exception as e:
+            try:
+                progress_dialog.close()
+            except:
+                pass
             messagebox.showerror("Error", str(e))
         finally:
             self.generate_btn.configure(state="normal")
-            # Hide progress bar when done
-            self.progress_bar.place_forget()
-            self.progress_var.set(0)
             
     def _open_generated_video(self):
-        """Open the generated video file using the default video player."""
-        from pathlib import Path
+        """Open the generated video file."""
         from ..config.settings import VIDEO_OUTPUT_FILENAME
-        import os
-        
-        video_path = Path(self.output_entry.get()) / VIDEO_OUTPUT_FILENAME
-        if video_path.exists():
-            os.startfile(str(video_path))  # This will open with default video player on Windows
+        try:
+            video_path = Path(self.output_entry.get()) / VIDEO_OUTPUT_FILENAME
+            if video_path.exists():
+                os.startfile(str(video_path))
+            else:
+                messagebox.showerror("Error", f"Video file not found at {video_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open video: {str(e)}")
             
     def run(self):
         """Start the application."""
