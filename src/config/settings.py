@@ -46,7 +46,7 @@ DEFAULT_AUDIO = "Default"
 VIDEO_OUTPUT_FILENAME = "BeAnonymous_video.mp4"
 
 # TTS Settings
-TTS_RATE = 185
+TTS_RATE = 195
 TTS_VOICE_ID = 0
 TTS_TEMP_FILE = TEMP_PATH / 'normal_audio.mp3'
 TTS_FINAL_FILE = TEMP_PATH / 'final_tts.mp3'
