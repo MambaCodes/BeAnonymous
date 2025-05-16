@@ -1,7 +1,11 @@
 """Main GUI application for BeAnonymous."""
-
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
+from customtkinter import StringVar, DoubleVar
+from pathlib import Path
+import os
+import webbrowser
+from PIL import Image
 from customtkinter import StringVar, DoubleVar
 from pathlib import Path
 import os
@@ -26,6 +30,8 @@ from ..core.audio.tts import TTS
 from ..core.video.generator import VideoGenerator
 from ..core.utils.file_handler import FileHandler
 from ..core.utils.validators import Validators
+from ..core.utils.settings_manager import SettingsManager
+from ..core.utils.settings_manager import SettingsManager
 
 class ProgressDialog:
     """Dialog to show progress during video generation."""
@@ -95,9 +101,167 @@ class ProgressDialog:
         self.window.grab_release()
         self.window.destroy()
 
+class SettingsDialog:
+    """Dialog for configuring application settings.
+    
+    This dialog provides controls for adjusting:
+    - TTS Rate (Words per Minute): Controls speech speed
+    - TTS Voice ID: Selects different voice options 
+    - Voice Pitch Factor: Adjusts voice pitch
+    
+    Settings are automatically saved when clicking Save and can be reset to defaults.
+    """
+    
+    def __init__(self, parent):
+        """Initialize settings dialog.
+        
+        Args:
+            parent: Parent window
+        """
+        self.window = ctk.CTkToplevel(parent)
+        self.window.title("Settings")
+        self.window.geometry("400x400")
+        self.window.iconbitmap(str(GUI_ASSETS_PATH / APP_ICON))
+        # Make it modal
+        self.window.transient(parent)
+        self.window.grab_set()
+        
+        # Center on parent
+        x = parent.winfo_x() + parent.winfo_width()//2 - 200
+        y = parent.winfo_y() + parent.winfo_height()//2 - 200
+        self.window.geometry(f"+{x}+{y}")
+        
+        # Load current settings
+        settings = SettingsManager.load_settings()
+        
+        # TTS Rate Slider
+        ctk.CTkLabel(
+            self.window,
+            text="TTS Rate (Words per Minute)",
+            font=("Arial", 14)
+        ).pack(pady=(20,5))
+        
+        self.tts_rate = ctk.CTkSlider(
+            self.window,
+            from_=100,
+            to=300,
+            number_of_steps=200,
+            width=300
+        )
+        self.tts_rate.set(settings['tts_rate'])
+        self.tts_rate.pack(pady=5)
+        
+        self.tts_rate_label = ctk.CTkLabel(
+            self.window,
+            text=str(int(settings['tts_rate'])),
+            font=("Arial", 12)
+        )
+        self.tts_rate_label.pack()
+          # Voice ID Selection
+        ctk.CTkLabel(
+            self.window,
+            text="TTS Voice",
+            font=("Arial", 14)
+        ).pack(pady=(20,5))
+        
+        self.voice_id = ctk.CTkComboBox(
+            self.window,
+            values=["Default Voice (0)", "Alternative Voice (1)"],
+            state="readonly",
+            width=300,
+            height=32,
+            fg_color="#2B2B2B",
+            text_color="#FFFFFF",
+            button_color="#2B2B2B",
+            button_hover_color="#404040",
+            dropdown_fg_color="#2B2B2B",
+            dropdown_text_color="#FFFFFF",
+            dropdown_hover_color="#404040"
+        )
+        self.voice_id.set("Default Voice (0)" if settings['tts_voice_id'] == 0 else "Alternative Voice (1)")
+        self.voice_id.pack(pady=10)
+        
+        # Pitch Factor Slider
+        ctk.CTkLabel(
+            self.window,
+            text="Voice Pitch Factor",
+            font=("Arial", 14)
+        ).pack(pady=(20,5))
+        
+        self.pitch_factor = ctk.CTkSlider(
+            self.window,
+            from_=0.1,
+            to=1.0,
+            number_of_steps=90,
+            width=300
+        )
+        self.pitch_factor.set(settings['pitch_factor'])
+        self.pitch_factor.pack(pady=5)
+        
+        self.pitch_factor_label = ctk.CTkLabel(
+            self.window,
+            text=f"{settings['pitch_factor']:.2f}",
+            font=("Arial", 12)
+        )
+        self.pitch_factor_label.pack()
+        
+        # Button frame
+        button_frame = ctk.CTkFrame(
+            self.window,
+            fg_color="transparent"
+        )
+        button_frame.pack(pady=20)
+        
+        # Save button
+        ctk.CTkButton(
+            button_frame,
+            text="Save",
+            width=100,
+            command=self._save_settings
+        ).pack(side="left", padx=10)
+        
+        # Reset button
+        ctk.CTkButton(
+            button_frame,
+            text="Reset",
+            width=100,
+            command=self._reset_settings
+        ).pack(side="left", padx=10)
+          # Bind slider events
+        self.tts_rate.configure(command=self._on_tts_rate_change)
+        self.pitch_factor.configure(command=self._on_pitch_factor_change)
+    
+    def _on_tts_rate_change(self, value):
+        """Update TTS rate label when slider changes."""
+        self.tts_rate_label.configure(text=str(int(value)))
+    
+    def _on_pitch_factor_change(self, value):
+        """Update pitch factor label when slider changes."""
+        self.pitch_factor_label.configure(text=f"{value:.2f}")
+    def _save_settings(self):
+        """Save the current settings."""
+        settings = {
+            'tts_rate': int(self.tts_rate.get()),
+            'tts_voice_id': 0 if self.voice_id.get() == "Default Voice (0)" else 1,
+            'pitch_factor': float(self.pitch_factor.get())
+        }
+        
+        if SettingsManager.save_settings(settings):
+            messagebox.showinfo("Success", "Settings saved successfully")
+            self.window.destroy()
+        else:
+            messagebox.showerror("Error", "Failed to save settings")
+    def _reset_settings(self):
+        """Reset settings to defaults."""
+        self.tts_rate.set(SettingsManager.DEFAULT_SETTINGS['tts_rate'])
+        self.voice_id.set("Default Voice (0)" if SettingsManager.DEFAULT_SETTINGS['tts_voice_id'] == 0 else "Alternative Voice (1)")
+        self.pitch_factor.set(SettingsManager.DEFAULT_SETTINGS['pitch_factor'])
+        
+        self._on_tts_rate_change(SettingsManager.DEFAULT_SETTINGS['tts_rate'])
+        self._on_pitch_factor_change(SettingsManager.DEFAULT_SETTINGS['pitch_factor'])
+        
 class BeAnonymousApp:
     """Main application class for BeAnonymous."""
-    
     def __init__(self):
         """Initialize the BeAnonymous application."""
         self.window = ctk.CTk()
@@ -381,7 +545,7 @@ class BeAnonymousApp:
             fg_color="transparent",
             hover_color=WINDOW_BG_COLOR,
             command=lambda: self._handle_button("generate")
-        )
+        )        
         self.generate_btn.place(x=10, y=475)
         
     def _handle_button(self, action):
@@ -389,7 +553,7 @@ class BeAnonymousApp:
         if action == "about":
             webbrowser.open(GITHUB_URL)
         elif action == "settings":
-            messagebox.showinfo("Settings", "Version: 1.0.0\nWords per Minute: 200")
+            SettingsDialog(self.window)
         elif action == "generate":
             self._generate_video()
             

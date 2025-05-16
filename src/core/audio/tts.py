@@ -3,9 +3,10 @@
 import os
 import pyttsx3
 import subprocess
-from ...config.settings import TTS_RATE, TTS_VOICE_ID, TEMP_PATH
+from ...config.settings import TEMP_PATH
 from pathlib import Path
 from ..utils.logger import get_logger
+from ..utils.settings_manager import SettingsManager
 
 logger = get_logger('TTS')
 
@@ -32,13 +33,13 @@ class TTS:
         logger.info(f"Using output path: {self.output_path}")
         
         self._init_engine()
-    
     def _init_engine(self):
         """Initialize the TTS engine with default settings."""
         self.engine = pyttsx3.init()
+        settings = SettingsManager.load_settings()
         voices = self.engine.getProperty('voices')
-        self.engine.setProperty('voice', voices[TTS_VOICE_ID].id)
-        self.engine.setProperty('rate', TTS_RATE)
+        self.engine.setProperty('voice', voices[settings['tts_voice_id']].id)
+        self.engine.setProperty('rate', settings['tts_rate'])
     
     def _generate_tts(self):
         """Generate initial TTS audio file.

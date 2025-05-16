@@ -4,16 +4,19 @@ import subprocess
 from pathlib import Path
 from ...config.settings import TEMP_PATH
 from ..utils.logger import get_logger
+from ..utils.settings_manager import SettingsManager
 
 logger = get_logger('AUDIO')
 
 class AudioProcessor:
     """Audio processing class for manipulating generated TTS audio."""
     
-    @staticmethod
+    @staticmethod    
     def convert_pitch(input_path=None, 
-                     output_path=None,
-                     pitch_factor=0.35):
+                     output_path=None):
+        """Convert the pitch of an audio file using ffmpeg."""
+        settings = SettingsManager.load_settings()
+        pitch_factor = settings.get('pitch_factor', 0.35)
         """Convert the pitch of an audio file using ffmpeg."""
         try:
             # Create temp directory if it doesn't exist
