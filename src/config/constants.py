@@ -8,7 +8,9 @@ GUI_ASSETS = {
     'TOGGLE_ON': 'togglebtn_on.png',
     'TOGGLE_OFF': 'togglebtn_off.png',
     'APP_TITLE': 'image_6.png',
-    'OUTPUT_SECTION': 'image_5.png'
+    'OUTPUT_SECTION': 'image_5.png',
+    'BROWSE_BTN': 'button_2.png',
+    'SCRIPT_ENTRY_BACKGROUND': 'image_1.png'
 }
 
 # Icon file
@@ -22,7 +24,7 @@ ERROR_MSGS = {
 }
 
 # URLs
-GITHUB_URL = "https://github.com/mambacodes/beanonymous"
+GITHUB_URL = "https://github.com/Mambacodes/BeAnonymous"
 
 # File Extensions
 VIDEO_EXTENSIONS = ['.mp4']

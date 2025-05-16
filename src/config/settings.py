@@ -37,7 +37,7 @@ for directory in REQUIRED_DIRS:
 # Application Settings
 APP_NAME = "BeAnonymous"
 APP_VERSION = "1.0.0"
-WINDOW_SIZE = "450x600"
+WINDOW_SIZE = "450x540"
 WINDOW_BG_COLOR = "#202020"
 
 # Video Settings

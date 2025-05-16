@@ -23,7 +23,6 @@ from ..config.constants import (
     GITHUB_URL
 )
 from ..core.audio.tts import TTS
-from ..core.audio.processor import AudioProcessor
 from ..core.video.generator import VideoGenerator
 from ..core.utils.file_handler import FileHandler
 from ..core.utils.validators import Validators
@@ -135,14 +134,38 @@ class BeAnonymousApp:
         for key, filename in GUI_ASSETS.items():
             file_path = GUI_ASSETS_PATH / filename
             try:
+                if not file_path.exists():
+                    print(f"Warning: Asset file not found: {file_path}")
+                    continue
+                    
                 pil_image = Image.open(file_path)
                 width, height = pil_image.size
                 self.images[key] = ctk.CTkImage(
-                    light_image=pil_image,
+                    light_image=pil_image,  # Light mode image
+                    dark_image=pil_image,  # Use same image for dark mode
                     size=(width, height)
                 )
             except Exception as e:
-                print(f"Failed to load image {filename}: {e}")
+                print(f"Failed to load image {filename}: {str(e)}")
+                # Create an empty image as fallback
+                if key in ["TOGGLE_ON", "TOGGLE_OFF"]:
+                    self.images[key] = ctk.CTkImage(
+                        light_image=Image.new('RGB', (62, 28), color='grey'),
+                        dark_image=Image.new('RGB', (62, 28), color='grey'),
+                        size=(62, 28)
+                    )
+                elif key in ["ABOUT_BTN", "SETTINGS_BTN"]:
+                    self.images[key] = ctk.CTkImage(
+                        light_image=Image.new('RGB', (30, 30), color='grey'),
+                        dark_image=Image.new('RGB', (30, 30), color='grey'),
+                        size=(30, 30)
+                    )
+                elif key == "GENERATE_BTN":
+                    self.images[key] = ctk.CTkImage(
+                        light_image=Image.new('RGB', (150, 40), color='grey'),
+                        dark_image=Image.new('RGB', (150, 40), color='grey'),
+                        size=(150, 40)
+                    )
     
     def create_widgets(self):
         """Create and place all GUI widgets."""
@@ -192,74 +215,117 @@ class BeAnonymousApp:
         
     def _create_output_section(self):
         """Create output directory selection section."""
+        # Output Directory Label
+        ctk.CTkLabel(
+            master=self.window,
+            text="Output Directory",
+            font=("Arial", 14),
+            text_color="#FFFFFF"
+        ).place(x=20, y=95)
+
+        # Decorative background image
         ctk.CTkLabel(
             master=self.window,
             image=self.images["OUTPUT_SECTION"],
             text="",
             fg_color="transparent"
-        ).place(relx=0.5, y=137.5, anchor="center")
+        ).place(relx=0.5, y=142.5, anchor="center")
 
+        # Entry for output path
         self.output_entry = ctk.CTkEntry(
             master=self.window,
             fg_color="#2d2d2d",
             bg_color="#2d2d2d",
             border_width=0,
             text_color="white",
-            placeholder_text="Output Directory",
+            placeholder_text="Select Output Directory",
             width=350,
             height=23
         )
-        self.output_entry.place(x=20, y=127)
+        self.output_entry.place(x=20, y=132)
         
         if self.last_output_path:
             self.output_entry.insert(0, self.last_output_path)
         
+        # Browse button
         ctk.CTkButton(
             master=self.window,
-            text="Browse",
+            image=self.images["BROWSE_BTN"],
+            text="",
             command=self._select_output_path,
-            width=70,
-            height=25,
-            fg_color="#D9D9D9",
-            text_color="#000716",
-            hover_color="#C0C0C0"
-        ).place(x=190, y=160)
+            width=30,
+            height=30,
+            border_width=0,
+            fg_color="#2d2d2d",
+            bg_color="#2d2d2d",
+            hover_color="#2d2d2d",
+            cursor="hand2",
+        ).place(x=385, y=128)
         
     def _create_video_section(self):
         """Create video and audio selection section."""
+        # Background Video Label
+        ctk.CTkLabel(
+            master=self.window,
+            text="Background Video",
+            font=("Arial", 14),
+            text_color="#FFFFFF"
+        ).place(x=20, y=220)
+        
         videos = self.file_handler.get_video_files()
         self.bg_video = ctk.CTkComboBox(
             master=self.window,
             values=videos,
             state="readonly",
-            width=350,
-            height=25,
+            width=170,
+            height=35,
             fg_color="#2B2B2B",
             text_color="#FFFFFF",
             button_color="#2B2B2B",
             dropdown_fg_color="#2B2B2B",
             dropdown_text_color="#FFFFFF",
-            dropdown_hover_color="#404040"
+            dropdown_hover_color="#404040",
+            border_width=0,
+            border_color="#2B2B2B"
+
         )
         self.bg_video.set(videos[0] if videos else "Default")
-        self.bg_video.place(x=50, y=220)
+        self.bg_video.place(x=20, y=250)
+        
+        # Background Music Label
+        ctk.CTkLabel(
+            master=self.window,
+            text="Background Music",
+            font=("Arial", 14),
+            text_color="#FFFFFF"
+        ).place(x=235, y=220)
         
         audios = self.file_handler.get_audio_files()
         self.bg_music = ctk.CTkComboBox(
             master=self.window,
             values=audios,
             state="readonly",
-            width=350,
-            height=25,
+            width=170,
+            height=35,
             fg_color="#2B2B2B",
             text_color="#FFFFFF",
             button_color="#2B2B2B",
             dropdown_fg_color="#2B2B2B",
             dropdown_text_color="#FFFFFF",
-            dropdown_hover_color="#404040"
+            dropdown_hover_color="#404040",
+            border_color="#2B2B2B",
+            border_width=0
         )
         self.bg_music.set(audios[0] if audios else "Default")
-        self.bg_music.place(x=50, y=270)
+        self.bg_music.place(x=235, y=250)
+        
+        # Anonymous Intro Label
+        ctk.CTkLabel(
+            master=self.window,
+            text="Include Anonymous Intro?",
+            font=("Arial", 14),
+            text_color="#FFFFFF"
+        ).place(x=80, y=170)
         
         self.toggle_btn = ctk.CTkButton(
             master=self.window,
@@ -272,10 +338,25 @@ class BeAnonymousApp:
             hover_color=WINDOW_BG_COLOR,
             command=self._toggle_intro
         )
-        self.toggle_btn.place(x=50, y=320)
+        self.toggle_btn.place(x=10, y=170)
         
     def _create_script_section(self):
         """Create script input section."""
+        # Enter Script Label
+        ctk.CTkLabel(
+            master=self.window,
+            text="Enter Script of Video",
+            font=("Arial", 14),
+            text_color="#FFFFFF"
+        ).place(x=20, y=305)
+
+        ctk.CTkLabel(
+            master=self.window,
+            text="",
+            image=self.images["SCRIPT_ENTRY_BACKGROUND"],
+            fg_color="transparent"
+        ).place(relx=0.5, y=400, anchor="center")
+        
         self.script_entry = ctk.CTkTextbox(
             master=self.window,
             fg_color="#2d2d2d",
@@ -283,10 +364,10 @@ class BeAnonymousApp:
             text_color="white",
             font=("Arial", 16),
             border_width=0,
-            width=409,
-            height=150
+            width=403,
+            height=115,
         )
-        self.script_entry.place(x=20, y=370)
+        self.script_entry.place(x=22, y=342)
         
     def _create_generate_button(self):
         """Create generate button."""
@@ -301,7 +382,7 @@ class BeAnonymousApp:
             hover_color=WINDOW_BG_COLOR,
             command=lambda: self._handle_button("generate")
         )
-        self.generate_btn.place(x=10, y=530)
+        self.generate_btn.place(x=10, y=475)
         
     def _handle_button(self, action):
         """Handle button clicks."""
