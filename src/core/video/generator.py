@@ -83,8 +83,8 @@ class VideoGenerator:
             return float(result.stdout.strip())
         except Exception as e:
             logger.error(f"Error getting video duration: {str(e)}")
-            raise
-
+            raise    
+        
     def generate(self, progress_callback: Optional[Callable[[float], None]] = None) -> bool:
         """Generate the final video using FFmpeg stream copying.
         
@@ -94,6 +94,7 @@ class VideoGenerator:
         Returns:
             bool: True if successful, False otherwise
         """
+        temp_files = []  # Keep track of all temp files
         try:
             if progress_callback:
                 progress_callback(0)  # Start progress
@@ -107,6 +108,9 @@ class VideoGenerator:
             output_file = self.output_path / VIDEO_OUTPUT_FILENAME
             temp_video = TEMP_PATH / "temp_video.mp4"
             temp_audio = TEMP_PATH / "temp_audio.mp3"
+            
+            # Add temp files to tracking list
+            temp_files.extend([temp_video, temp_audio])
 
             if self.add_intro:
                 # Get intro video duration
@@ -161,44 +165,65 @@ class VideoGenerator:
                 subprocess.run(concat_cmd, check=True)
                 
             else:
-                # Without intro, simpler command
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-hide_banner', '-loglevel', 'warning',
-                    '-stream_loop', '-1',  # Loop input video
-                    '-t', str(tts_duration),  # Duration from TTS
-                    '-i', str(self.video_path),  # Input video
-                    '-i', str(self.tts_path),  # TTS audio
-                    '-i', str(self.audio_path),  # Background audio
-                    '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first[a]',
-                    '-map', '0:v', '-map', '[a]',
-                    str(output_file)
-                ]
-                subprocess.run(cmd, check=True)
+                try:
+                    # Without intro, simpler command
+                    cmd = [
+                        'ffmpeg', '-y',
+                        '-hide_banner', '-loglevel', 'warning',
+                        '-stream_loop', '-1',  # Loop input video
+                        '-t', str(tts_duration),  # Duration from TTS
+                        '-i', str(self.video_path),  # Input video
+                        '-i', str(self.tts_path),  # TTS audio
+                        '-i', str(self.audio_path),  # Background audio
+                        '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first[a]',
+                        '-map', '0:v', '-map', '[a]',
+                        str(output_file)
+                    ]
+                    subprocess.run(cmd, check=True)
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"FFmpeg Error: {e.stderr.decode() if e.stderr else str(e)}")
+                    if output_file.exists():
+                        output_file.unlink()  # Delete failed output file
+                    raise
             
             if progress_callback:
                 progress_callback(90)  # FFmpeg processing done
             
             logger.info(f"Success: Video generated at {output_file}")
             
-            # Clean up temporary files
-            if self.add_intro:
-                for temp_file in [temp_video, temp_audio]:
-                    if temp_file.exists():
-                        temp_file.unlink()
-            
-            # Clean up TTS file after successful generation
-            if self.tts_path.exists():
-                self.tts_path.unlink()
-                    
-            if progress_callback:
-                progress_callback(100)  # All done
-                
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"FFmpeg Error: {e.stderr.decode() if e.stderr else str(e)}")
-            return False
         except Exception as e:
             logger.error(f"Error: {str(e)}")
+            # Clean up any partially created output file
+            if output_file.exists():
+                try:
+                    output_file.unlink()
+                except:
+                    pass
             return False
+            
+        finally:
+            # Clean up ALL temporary files
+            try:
+                # Clean up temp files 
+                for temp_file in temp_files:
+                    if temp_file.exists():
+                        try:
+                            temp_file.unlink()
+                            logger.info(f"Cleaned up temp file: {temp_file}")
+                        except Exception as e:
+                            logger.error(f"Failed to clean up {temp_file}: {e}")
+                
+                # Clean up TTS file after generation
+                if self.tts_path.exists():
+                    try:
+                        self.tts_path.unlink()
+                        logger.info("Cleaned up TTS file")
+                    except Exception as e:
+                        logger.error(f"Failed to clean up TTS file: {e}")
+            except Exception as e:
+                logger.error(f"Error during cleanup: {e}")
+                
+            if progress_callback:
+                progress_callback(100)  # All done
+            
+        return True
