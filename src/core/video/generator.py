@@ -1,7 +1,6 @@
 """Video generation module for BeAnonymous."""
 
 import subprocess
-import os
 from pathlib import Path
 from typing import Optional, Callable
 from ...config.settings import (
@@ -104,6 +103,7 @@ class VideoGenerator:
             # Prepare output path
             output_file = self.output_path / VIDEO_OUTPUT_FILENAME
             temp_video = TEMP_PATH / "temp_video.mp4"
+            temp_audio = TEMP_PATH / "temp_audio.mp3"
 
             if self.add_intro:
                 # Get intro video duration
@@ -111,46 +111,52 @@ class VideoGenerator:
                 if progress_callback:
                     progress_callback(20)  # Get video duration done
                 
-                # First create a temporary concatenated video
-                concat_file = TEMP_PATH / "concat.txt"
-                with open(concat_file, 'w') as f:
-                    f.write(f"file '{INTRO_VIDEO_PATH}'\n")
-                    f.write(f"file '{self.video_path}'\n")
+                # First create mixed audio for main video section (TTS + background music)
+                audio_mix_cmd = [
+                    'ffmpeg', '-y',
+                    '-hide_banner', '-loglevel', 'warning',
+                    '-i', str(self.tts_path),  # TTS audio
+                    '-i', str(self.audio_path),  # Background audio
+                    '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first[a]',
+                    '-map', '[a]',
+                    str(temp_audio)
+                ]
+                subprocess.run(audio_mix_cmd, check=True)
                 
                 if progress_callback:
-                    progress_callback(30)  # Concat file created
+                    progress_callback(30)  # Audio mix done
                 
-                # First concatenate the videos
+                # Now create a temporary video with the mixed audio
+                temp_main_cmd = [
+                    'ffmpeg', '-y',
+                    '-hide_banner', '-loglevel', 'warning',
+                    '-stream_loop', '-1',  # Loop input video
+                    '-t', str(tts_duration),  # Duration from TTS
+                    '-i', str(self.video_path),  # Input video
+                    '-i', str(temp_audio),  # Mixed audio
+                    '-map', '0:v',  # Take video from first input
+                    '-map', '1:a',  # Take audio from second input
+                    str(temp_video)  # Don't use -c:v copy here to ensure compatibility
+                ]
+                subprocess.run(temp_main_cmd, check=True)
+                
+                if progress_callback:
+                    progress_callback(50)  # Temp video created
+                
+                # Finally concatenate intro and main video ensuring format compatibility
                 concat_cmd = [
                     'ffmpeg', '-y',
                     '-hide_banner', '-loglevel', 'warning',
-                    '-f', 'concat', '-safe', '0', 
-                    '-i', str(concat_file),
-                    '-c', 'copy',
-                    str(temp_video)
+                    '-i', str(INTRO_VIDEO_PATH),  # First input - intro
+                    '-i', str(temp_video),  # Second input - main video
+                    '-filter_complex',
+                    '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]',  # Proper concatenation
+                    '-map', '[outv]',  # Map concatenated video
+                    '-map', '[outa]',  # Map concatenated audio
+                    str(output_file)
                 ]
                 subprocess.run(concat_cmd, check=True)
                 
-                if progress_callback:
-                    progress_callback(50)  # Video concatenation done
-                
-                # Now add the audio with proper timing
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-hide_banner', '-loglevel', 'warning',
-                    '-i', str(temp_video),  # Input concatenated video
-                    '-i', str(self.tts_path),  # TTS audio
-                    '-i', str(self.audio_path),  # Background audio
-                    '-filter_complex',
-                    # Delay TTS to start after intro, mix with background audio
-                    f'[1:a]adelay={int(intro_duration*1000)}|{int(intro_duration*1000)}[delayed_tts];'
-                    '[delayed_tts][2:a]amix=inputs=2:duration=first[a]',
-                    '-map', '0:v', '-map', '[a]',
-                    # Trim to intro duration plus TTS duration
-                    '-t', str(intro_duration + tts_duration),
-                    '-c:v', 'copy',
-                    str(output_file)
-                ]
             else:
                 # Without intro, simpler command
                 cmd = [
@@ -163,15 +169,10 @@ class VideoGenerator:
                     '-i', str(self.audio_path),  # Background audio
                     '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first[a]',
                     '-map', '0:v', '-map', '[a]',
-                    '-c:v', 'copy',  # Copy video stream without re-encoding
                     str(output_file)
                 ]
+                subprocess.run(cmd, check=True)
             
-            if progress_callback:
-                progress_callback(70)  # FFmpeg command prepared
-            
-            # Run FFmpeg command
-            subprocess.run(cmd, check=True)
             if progress_callback:
                 progress_callback(90)  # FFmpeg processing done
             
@@ -179,10 +180,13 @@ class VideoGenerator:
             
             # Clean up temporary files
             if self.add_intro:
-                if concat_file.exists():
-                    concat_file.unlink()
-                if temp_video.exists():
-                    temp_video.unlink()
+                for temp_file in [temp_video, temp_audio]:
+                    if temp_file.exists():
+                        temp_file.unlink()
+            
+            # Clean up TTS file after successful generation
+            if self.tts_path.exists():
+                self.tts_path.unlink()
                     
             if progress_callback:
                 progress_callback(100)  # All done
