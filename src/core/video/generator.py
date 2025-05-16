@@ -11,6 +11,9 @@ from ...config.settings import (
     TEMP_PATH,
     RESOURCES_DIR
 )
+from ..utils.logger import get_logger
+
+logger = get_logger('GENERATOR')
 
 class VideoGenerator:
     """Video generator class for creating anonymous videos."""
@@ -35,9 +38,9 @@ class VideoGenerator:
             fallback_path = RESOURCES_DIR / "videos" / f"{video_name}.mp4"
             if fallback_path.exists():
                 self.video_path = fallback_path
-                print(f" [VIDEO GENERATOR] Using fallback video path: {self.video_path}")
+                logger.info(f"Using fallback video path: {self.video_path}")
             else:
-                print(f" [VIDEO GENERATOR] Video file not found: {self.video_path}")
+                logger.error(f"Video file not found: {self.video_path}")
                 raise FileNotFoundError(f"Video file not found: {self.video_path}")
         
         # Ensure other required files exist
@@ -62,7 +65,7 @@ class VideoGenerator:
             result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
             return float(result.stdout.strip())
         except Exception as e:
-            print(f" [VIDEO GENERATOR] Error getting audio duration: {str(e)}")
+            logger.error(f"Error getting audio duration: {str(e)}")
             raise
 
     def _get_video_duration(self, video_path):
@@ -79,7 +82,7 @@ class VideoGenerator:
             result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
             return float(result.stdout.strip())
         except Exception as e:
-            print(f" [VIDEO GENERATOR] Error getting video duration: {str(e)}")
+            logger.error(f"Error getting video duration: {str(e)}")
             raise
 
     def generate(self, progress_callback: Optional[Callable[[float], None]] = None) -> bool:
@@ -176,7 +179,7 @@ class VideoGenerator:
             if progress_callback:
                 progress_callback(90)  # FFmpeg processing done
             
-            print(f" [VIDEO GENERATOR] Success: Video generated at {output_file}")
+            logger.info(f"Success: Video generated at {output_file}")
             
             # Clean up temporary files
             if self.add_intro:
@@ -194,8 +197,8 @@ class VideoGenerator:
             return True
             
         except subprocess.CalledProcessError as e:
-            print(f" [VIDEO GENERATOR] FFmpeg Error: {e.stderr.decode() if e.stderr else str(e)}")
+            logger.error(f"FFmpeg Error: {e.stderr.decode() if e.stderr else str(e)}")
             return False
         except Exception as e:
-            print(f" [VIDEO GENERATOR] Error: {str(e)}")
+            logger.error(f"Error: {str(e)}")
             return False
